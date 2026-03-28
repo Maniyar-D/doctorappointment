@@ -102,7 +102,7 @@ export default async function VerificationPage() {
                     asChild
                     className="bg-emerald-600 hover:bg-emerald-700"
                   >
-                    <Link href="/doctor/update-profile">Update Profile</Link>
+                    <Link href="/onboarding">Update Profile</Link>
                   </Button>
                 </>
               ) : (
@@ -118,7 +118,7 @@ export default async function VerificationPage() {
                     asChild
                     className="bg-emerald-600 hover:bg-emerald-700"
                   >
-                    <Link href="/contact-support">Contact Support</Link>
+                    <Link href="/">Go to Home</Link>
                   </Button>
                 </>
               )}

@@ -1,20 +1,62 @@
 "use server";
 
+import fs from "fs";
+import path from "path";
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
-import { deductCreditsForAppointment } from "@/actions/credits";
 import { Vonage } from "@vonage/server-sdk";
 import { addDays, addMinutes, format, isBefore, endOfDay } from "date-fns";
 import { Auth } from "@vonage/auth";
 
+const getVonageApplicationId = () =>
+  process.env.VONAGE_APPLICATION_ID ||
+  process.env.NEXT_PUBLIC_VONAGE_APPLICATION_ID ||
+  "";
+
+const getVonagePrivateKey = () => {
+  const raw = (process.env.VONAGE_PRIVATE_KEY || "").trim();
+  if (!raw) return "";
+
+  // Supports multiline value stored as escaped newlines in .env
+  const normalized = raw.replace(/\\n/g, "\n");
+  if (normalized.includes("BEGIN PRIVATE KEY")) {
+    return normalized;
+  }
+
+  // Supports private key file path in .env (absolute or project-relative)
+  const resolvedPath = path.isAbsolute(raw) ? raw : path.resolve(process.cwd(), raw);
+  if (fs.existsSync(resolvedPath)) {
+    return fs.readFileSync(resolvedPath, "utf8");
+  }
+
+  return normalized;
+};
+
 // Initialize Vonage Video API client
+const VONAGE_APPLICATION_ID = getVonageApplicationId();
+const VONAGE_PRIVATE_KEY = getVonagePrivateKey();
+
 const credentials = new Auth({
-  applicationId: process.env.NEXT_PUBLIC_VONAGE_APPLICATION_ID,
-  privateKey: process.env.VONAGE_PRIVATE_KEY,
+  applicationId: VONAGE_APPLICATION_ID,
+  privateKey: VONAGE_PRIVATE_KEY,
 });
 const options = {};
 const vonage = new Vonage(credentials, options);
+
+const assertVonageConfigured = () => {
+  if (!VONAGE_APPLICATION_ID || !VONAGE_PRIVATE_KEY) {
+    throw new Error(
+      "Vonage is not configured. Set VONAGE_APPLICATION_ID and VONAGE_PRIVATE_KEY."
+    );
+  }
+
+  if (!VONAGE_PRIVATE_KEY.includes("BEGIN PRIVATE KEY")) {
+    throw new Error(
+      "Invalid VONAGE_PRIVATE_KEY. Use full PEM content (with BEGIN PRIVATE KEY) or a valid file path."
+    );
+  }
+};
 
 /**
  * Book a new appointment with a doctor
@@ -63,11 +105,6 @@ export async function bookAppointment(formData) {
       throw new Error("Doctor not found or not verified");
     }
 
-    // Check if the patient has enough credits (2 credits per appointment)
-    if (patient.credits < 2) {
-      throw new Error("Insufficient credits to book an appointment");
-    }
-
     // Check if the requested time slot is available
     const overlappingAppointment = await db.appointment.findFirst({
       where: {
@@ -112,16 +149,6 @@ export async function bookAppointment(formData) {
     // Create a new Vonage Video API session
     const sessionId = await createVideoSession();
 
-    // Deduct credits from patient and add to doctor
-    const { success, error } = await deductCreditsForAppointment(
-      patient.id,
-      doctor.id
-    );
-
-    if (!success) {
-      throw new Error(error || "Failed to deduct credits");
-    }
-
     // Create the appointment with the video session ID
     const appointment = await db.appointment.create({
       data: {
@@ -148,9 +175,15 @@ export async function bookAppointment(formData) {
  */
 async function createVideoSession() {
   try {
+    assertVonageConfigured();
     const session = await vonage.video.createSession({ mediaMode: "routed" });
     return session.sessionId;
   } catch (error) {
+    if (error?.response?.status === 401 || error?.status === 401) {
+      throw new Error(
+        "Vonage auth failed (401). Ensure VONAGE_APPLICATION_ID and VONAGE_PRIVATE_KEY belong to the same Vonage Video app."
+      );
+    }
     throw new Error("Failed to create video session: " + error.message);
   }
 }
@@ -217,6 +250,7 @@ export async function generateVideoToken(formData) {
 
     // Generate a token for the video session
     // Token expires 2 hours after the appointment start time
+    assertVonageConfigured();
     const appointmentEndTime = new Date(appointment.endTime);
     const expirationTime =
       Math.floor(appointmentEndTime.getTime() / 1000) + 60 * 60; // 1 hour after end time
@@ -306,13 +340,20 @@ export async function getAvailableTimeSlots(doctorId) {
       },
     });
 
-    if (!availability) {
-      throw new Error("No availability set by doctor");
-    }
-
     // Get the next 4 days
     const now = new Date();
     const days = [now, addDays(now, 1), addDays(now, 2), addDays(now, 3)];
+
+    // If doctor has not set availability yet, return empty day buckets
+    if (!availability) {
+      const emptyDays = days.map((day) => ({
+        date: format(day, "yyyy-MM-dd"),
+        displayDate: format(day, "EEEE, MMMM d"),
+        slots: [],
+      }));
+
+      return { days: emptyDays };
+    }
 
     // Fetch existing appointments for the doctor over the next 4 days
     const lastDay = endOfDay(days[3]);

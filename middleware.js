@@ -10,16 +10,24 @@ const isProtectedRoute = createRouteMatcher([
   "/appointments(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, req) => {
-  const { userId } = await auth();
+const middlewareOptions =
+  process.env.NODE_ENV === "development"
+    ? { clockSkewInMs: 60_000 }
+    : undefined;
 
-  if (!userId && isProtectedRoute(req)) {
-    const { redirectToSignIn } = await auth();
-    return redirectToSignIn();
-  }
+export default clerkMiddleware(
+  async (auth, req) => {
+    const { userId } = await auth();
 
-  return NextResponse.next();
-});
+    if (!userId && isProtectedRoute(req)) {
+      const { redirectToSignIn } = await auth();
+      return redirectToSignIn();
+    }
+
+    return NextResponse.next();
+  },
+  middlewareOptions
+);
 
 export const config = {
   matcher: [
