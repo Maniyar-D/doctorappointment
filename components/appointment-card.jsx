@@ -409,6 +409,54 @@ export function AppointmentCard({
                 </div>
               </div>
             )}
+  
+{/* 💰 Payment Section */}
+<div className="space-y-2">
+  <h4 className="text-sm font-medium text-muted-foreground">
+    Payment Details
+  </h4>
+
+  <div className="p-4 rounded-md bg-emerald-900/10 border border-emerald-800/30">
+
+    {/* Fee */}
+    <p className="text-white font-semibold mb-2">
+      Consultation Fee: ₹300
+    </p>
+
+    {/* Instruction */}
+    <p className="text-sm text-muted-foreground mb-2">
+      Please pay using UPI before joining the consultation
+    </p>
+
+    {/* UPI */}
+    <p className="text-sm text-white mb-2">
+      UPI ID: <span className="text-emerald-400">doctor@upi</span>
+    </p>
+
+    {/* Copy Button */}
+    <button
+      onClick={() => navigator.clipboard.writeText("doctor@upi")}
+      className="text-xs text-emerald-400 underline mb-3"
+    >
+      Copy UPI ID
+    </button>
+
+    {/* QR Code */}
+    <div className="flex justify-center mb-3">
+      <img
+        src="/MY-QR1.png"
+        alt="QR Code"
+        className="w-32 h-32 rounded-lg border border-border"
+      />
+    </div>
+
+    {/* Warning */}
+    <p className="text-xs text-emerald-300">
+      ⚠️ Please complete payment before joining. Doctor may cancel unpaid appointments.
+    </p>
+
+  </div>
+</div>
 
             {/* Join Video Call Button */}
             {appointment.status === "SCHEDULED" && (

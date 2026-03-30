@@ -36,9 +36,41 @@ export default function RootLayout({ children }) {
             <Toaster richColors />
 
             <footer className="bg-muted/50 py-12">
-              <div className="container mx-auto px-4 text-center text-gray-200">
-                <p>Made with 💗 by Daninaniel& ronny Sins & danish Bhai</p>
-              </div>
+              <div className="container mx-auto px-4">
+
+    {/* Top Section */}
+    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+
+      {/* Branding */}
+      <div className="text-center md:text-left">
+        <h2 className="text-xl font-semibold text-primary">
+          ClinicConnect
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Healthcare made simple, anytime, anywhere.
+        </p>
+      </div>
+
+      {/* Links */}
+      <div className="flex gap-6 text-sm text-muted-foreground">
+        <a href="#" className="hover:text-primary transition">Privacy</a>
+        <a href="#" className="hover:text-primary transition">Terms</a>
+        <a href="#" className="hover:text-primary transition">Support</a>
+      </div>
+
+    </div>
+
+    {/* Divider */}
+    <div className="border-t border-border my-6"></div>
+
+    {/* Bottom */}
+    <div className="text-center text-sm text-muted-foreground">
+      <p>
+        © {new Date().getFullYear()} ClinicConnect • Built by Danish & Team
+      </p>
+    </div>
+
+  </div>
             </footer>
           </ThemeProvider>
         </body>
